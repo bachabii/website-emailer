@@ -8,6 +8,7 @@ import (
 
 	"github.com/streadway/amqp"
 	"net/smtp"
+	"net/http"
 )
 
 type Message struct {
@@ -23,16 +24,16 @@ func failOnError(err error, msg string) {
 }
 
 func send(email string, subject string, content string) {
-	log.Printf("hi there emailer")
 	var from, pass, to string
 	
 	if ( os.Getenv("GO_ENV") == "production" ) {
 		from = os.Getenv("EMAIL_FROM")
 		pass = os.Getenv("EMAIL_PWD")
 		to = os.Getenv("EMAIL_TO")
+
 	} else {
 		from = "ibac7889@gmail.com"
-		pass = "Juillet7889!"
+		pass = "PASSWORD"
 		to = "ibac7889@gmail.com"
 	}
 
@@ -53,12 +54,18 @@ func send(email string, subject string, content string) {
 
 func main() {
 	var amqp_url string
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5050"
+	}
+
 	if ( os.Getenv("GO_ENV") == "production" ) {
 		amqp_url = os.Getenv("AMQP_URL")
 	} else {
 		amqp_url = "amqp://guest:guest@localhost:5672/"
 	}
-	
+
 	conn, err := amqp.Dial(amqp_url)
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -68,7 +75,7 @@ func main() {
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
-		"hello_test", // name
+		"website_email_service", // name
 		false,   // durable
 		false,   // delete when unused
 		false,   // exclusive
@@ -105,7 +112,8 @@ func main() {
 			}
 		}
 	}()
-
+	
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	http.ListenAndServe(":"+port, nil)
 	<-forever
 }
